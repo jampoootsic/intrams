@@ -1,0 +1,28 @@
+# Dependencies
+**/node_modules/**
+
+# Generated build output
+client/dist/
+server/dist/
+build/
+
+# Logs and temporary files
+**/*.log
+**/*.tmp
+**/*.temp
+
+# Private configuration
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Database export may contain real records
+/intramsgrado_db.sql
+
+# Uploaded user files
+server/uploads/**
+uploads/**
+
+# Git internals
+.git/**
