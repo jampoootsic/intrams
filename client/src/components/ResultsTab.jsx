@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { resultsApi } from '../api.js';
+import { useLiveRefresh } from '../hooks/useLiveRefresh.js';
 
 const SEGMENT_LABELS = {
   jeans: 'Jeans Attire',
@@ -29,6 +30,7 @@ export default function ResultsTab({ competition }) {
   useEffect(() => {
     load();
   }, [competition]);
+  useLiveRefresh(() => load());
 
   if (error) return <div className="alert error">{error}</div>;
   if (!data) return <div className="empty-state">Loading results…</div>;

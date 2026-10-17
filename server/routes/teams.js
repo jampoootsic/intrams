@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import pool from '../db.js';
+import pool, { UNIQUE_VIOLATION } from '../db.js';
+import { bumpVersion } from '../utils/version.js';
 import { auth, adminOnly } from '../middleware/auth.js';
 
 const router = Router();
@@ -27,12 +28,13 @@ router.post('/', auth, adminOnly, async (req, res) => {
   const cid = Number(competition_id) || 1;
   try {
     const [r] = await pool.query(
-      'INSERT INTO teams (competition_id, name, color, sort_order) VALUES (?, ?, ?, ?)',
+      'INSERT INTO teams (competition_id, name, color, sort_order) VALUES (?, ?, ?, ?) RETURNING id',
       [cid, name.trim(), cleanColor, await nextSortOrder(cid)]
     );
+    await bumpVersion();
     return res.status(201).json({ id: r.insertId });
   } catch (e) {
-    if (e.code === 'ER_DUP_ENTRY') return res.status(409).json({ message: 'A team with that name already exists in this competition.' });
+    if (e.code === UNIQUE_VIOLATION) return res.status(409).json({ message: 'A team with that name already exists in this competition.' });
     return res.status(500).json({ message: e.message });
   }
 });
@@ -49,9 +51,10 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
   vals.push(id);
   try {
     await pool.query(`UPDATE teams SET ${sets.join(', ')} WHERE id = ?`, vals);
+    await bumpVersion();
     return res.json({ message: 'Team updated.' });
   } catch (e) {
-    if (e.code === 'ER_DUP_ENTRY') return res.status(409).json({ message: 'A team with that name already exists.' });
+    if (e.code === UNIQUE_VIOLATION) return res.status(409).json({ message: 'A team with that name already exists.' });
     return res.status(500).json({ message: e.message });
   }
 });
@@ -63,6 +66,7 @@ router.delete('/:id', auth, adminOnly, async (req, res) => {
   // Detach candidates first (FK is SET NULL anyway, but be explicit + clear scores are kept).
   await pool.query('UPDATE candidates SET team_id = NULL WHERE team_id = ?', [id]);
   await pool.query('DELETE FROM teams WHERE id = ?', [id]);
+  await bumpVersion();
   return res.json({ message: 'Team deleted. Its candidates are now unassigned.' });
 });
 

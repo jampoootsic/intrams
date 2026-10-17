@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import pool from '../db.js';
+import { bumpVersion } from '../utils/version.js';
 import { auth, adminOnly } from '../middleware/auth.js';
 
 const router = Router();
@@ -41,6 +42,7 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
     return res.status(400).json({ message: 'Invalid final weight.' });
   }
   await pool.query('UPDATE segments SET final_weight = ? WHERE id = ?', [final_weight, id]);
+  await bumpVersion();
   return res.json({ message: 'Segment updated.' });
 });
 
@@ -56,6 +58,7 @@ router.put('/criteria/:id', auth, adminOnly, async (req, res) => {
   if (name) { sets.push('name = ?'); vals.push(name); }
   vals.push(id);
   await pool.query(`UPDATE criterias SET ${sets.join(', ')} WHERE id = ?`, vals);
+  await bumpVersion();
   return res.json({ message: 'Criterion updated.' });
 });
 

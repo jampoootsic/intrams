@@ -1,0 +1,5 @@
+.devenv
+.direnv
+server/uploads
+*.bat
+images

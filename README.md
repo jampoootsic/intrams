@@ -84,67 +84,48 @@ Each judge scores every candidate **0–100** per criterion.
 
 ---
 
-## Setup (one time)
+## Stack
 
-### Option A: devenv (Linux/macOS, no XAMPP)
-Requires [devenv](https://devenv.sh). MariaDB, Node and all scripts are provided by `devenv.nix`;
-no `.env` is needed (DB credentials are set by devenv, data lives in `.devenv/state/mysql`).
+- **Database:** Postgres (Neon in production, local Postgres via devenv). Schema + idempotent seed: `server/db/schema.sql`, `server/db/init.js`.
+- **API:** Express (`server/app.js`); run locally by `server/index.js`, on Vercel as the serverless function `api/index.js`.
+- **Client:** React + Vite (`client/`), served from `client/dist`. Same-origin `/api` calls (see `vercel.json` rewrites).
+- **Photos:** Vercel Blob when `BLOB_READ_WRITE_TOKEN` is set, otherwise `server/uploads/` on disk (`server/utils/storage.js`). The client downscales images to ≤1600px JPEG before upload (`client/src/utils/image.js`).
+- **Realtime:** every write bumps `settings.data_version`; clients poll `GET /api/settings/version` every 2 s (`client/src/hooks/useLiveRefresh.js`) and reload on change. Unsaved score cells are never overwritten.
+
+## Local development (devenv)
+
+Requires [devenv](https://devenv.sh). Postgres, Node and all scripts come from `devenv.nix`; no `.env` needed (data lives in `.devenv/state/postgres`).
 ```bash
-devenv up          # MariaDB → npm install → DB init → API :3010 (--watch) → Vite :5174
+devenv up          # postgres → npm install → DB init → API :3010 (--watch) → Vite :5174
 ```
 Production-style run inside the shell:
 ```bash
-devenv up -d mysql
+devenv up -d postgres
 devenv shell
 setup              # npm install, build client, init DB
 start-server       # serves the built app at http://localhost:3010
 ```
 
-### Option B: manual (Windows / XAMPP)
-
-### 1. Start MySQL (XAMPP)
-Open **XAMPP Control Panel → Start MySQL**.
-
-### 2. Backend
+### Without devenv
+Needs Node 20+ and a Postgres you can reach.
 ```bash
-cd server
-npm install
-copy .env.example .env     # adjust DB credentials if needed
-npm run db:init            # creates DB, tables, seeds competitions, segments + criteria + admin
-npm start                  # runs on http://localhost:3010
+cp .env.example .env       # set DATABASE_URL (and JWT_SECRET)
+npm install && npm run db:init
+npm run dev                # API on http://localhost:3010
+cd client && npm install && npm run dev   # http://localhost:5174, proxies /api to :3010
 ```
 
-> Port `3010` is used for this system because another local service already uses `3001`.
+Other devices on the same LAN can open `http://<PC-LAN-IP>:5174` (Vite listens on all interfaces; allow TCP 3010 and 5174 through the firewall).
 
-Default admin login: **username `admin` / password `admin123`** (change after first login via the Judges tab).
+## Production (Neon + Vercel)
 
-### 3. Frontend (development)
-Open a second terminal:
-```bash
-cd client
-npm install
-npm run dev                # http://localhost:5174 (proxies /api to :3010)
-```
+Live: https://sic-intrams.vercel.app
 
-### Access from other devices on the same network (development)
+- Neon project `sic-intrams` (ap-southeast-1); Vercel project `sic-intrams`, functions pinned to `sin1`.
+- Vercel env: `DATABASE_URL` (Neon **pooled** URL, `sslmode=require`), `JWT_SECRET`, `BLOB_READ_WRITE_TOKEN` (store `sic-intrams-photos`, linked automatically).
+- Deploy: `vercel deploy --prod`. Schema/seed changes: `DATABASE_URL=<neon url> npm run db:init` (idempotent).
+- Demo data: `npm run db:seed`. Wipe scores/candidates/non-admin judges: `node server/db/cleanup.js` (destructive).
 
-The Vite dev server listens on all interfaces (`host: true`), so other devices on the same
-Wi-Fi/LAN can open the app using this PC's IP address:
-
-1. Find this PC's LAN IP — e.g. `ipconfig` (looks like `192.168.x.x`).
-2. Allow Windows Firewall to accept incoming connections on TCP ports `3010` and `5174`
-   (it will show a prompt the first time, or add rules manually).
-3. On the other device, open `http://<PC-LAN-IP>:5174`.
-   `/api` calls go through the Vite proxy to the backend (`:3010`), so it works exactly like local.
-
-### Production (single port)
-```bash
-cd client
-npm run build              # outputs to client/dist
-cd ../server && npm start  # serves the built app at http://localhost:3010
-```
-
-> The working directory is inside XAMPP's `htdocs`, but this is a Node app — it runs on its own port and does **not** need Apache/PHP.
 
 ## Default admin
 - Username: `admin`

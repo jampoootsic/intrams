@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { auth, competitions as competitionsApi } from '../api.js';
+import { useLiveRefresh } from '../hooks/useLiveRefresh.js';
 
 export default function JudgesTab({ competition }) {
   const [list, setList] = useState([]);
@@ -23,6 +24,7 @@ export default function JudgesTab({ competition }) {
   useEffect(() => {
     load();
   }, [competition]);
+  useLiveRefresh(() => load());
 
   const openAdd = () => {
     setForm({ name: '', username: '', password: '', confirm: '' });

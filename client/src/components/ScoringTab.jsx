@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { segmentsApi, candidates, auth, scoresApi, teams as teamsApi, settingsApi } from '../api.js';
+import { useLiveRefresh } from '../hooks/useLiveRefresh.js';
 
 const GENDERS = ['All', 'Male', 'Female'];
 
@@ -18,6 +19,8 @@ export default function ScoringTab({ user, competition }) {
   const [error, setError] = useState('');
   const [locked, setLocked] = useState(false); // system-wide scoring lock
   const timers = useRef({});
+  const inflight = useRef(new Set()); // keys with a save request in flight
+  const touched = useRef(new Set()); // keys edited since the current live fetch began
 
   const segment = useMemo(() => segments.find((s) => s.id === Number(segId)), [segments, segId]);
   const criteria = segment ? segment.criterias : [];
@@ -75,6 +78,53 @@ export default function ScoringTab({ user, competition }) {
       cancelled = true;
     };
   }, [segId, activeJudge, user.is_admin, judges]);
+
+  // Live refresh (background, no loading flag). Server scores are merged into
+  // state, skipping cells that are pending (debounce timer), being saved, or
+  // edited while the fetch was in flight, so local edits are never clobbered.
+  const live = useRef({});
+  live.current = { segId, activeJudge, judges, user, competition };
+  useLiveRefresh(async () => {
+    const { segId: sid, activeJudge: aj, user: u, competition: comp } = live.current;
+    const compId = comp ? comp.id : null;
+    touched.current.clear();
+    const [seg, cand, jg, ts, sys, sc] = await Promise.all([
+      segmentsApi.list(compId),
+      candidates.list(compId),
+      u.is_admin ? auth.list(compId) : Promise.resolve(null),
+      teamsApi.list(compId),
+      settingsApi.system(),
+      sid && (!u.is_admin || aj != null) ? scoresApi.get(sid, u.is_admin ? aj : undefined) : Promise.resolve(null),
+    ]);
+    setSegments(seg);
+    setCandList(cand);
+    setTeamList(ts);
+    setLocked(!!sys.locked);
+    if (jg) {
+      const judgesOnly = jg.filter((j) => !j.is_admin);
+      setJudges((prev) =>
+        prev.length === judgesOnly.length && prev.every((p, i) => p.id === judgesOnly[i].id && p.name === judgesOnly[i].name)
+          ? prev
+          : judgesOnly
+      );
+    }
+    if (sc && sid === live.current.segId && aj === live.current.activeJudge) {
+      const server = sc.scores || {};
+      setScores((prev) => {
+        const next = {};
+        const keys = new Set([...Object.keys(server), ...Object.keys(prev)]);
+        keys.forEach((k) => {
+          const dirty = timers.current[k] || inflight.current.has(k) || touched.current.has(k);
+          if (dirty) {
+            if (k in prev) next[k] = prev[k];
+          } else if (k in server) {
+            next[k] = server[k];
+          }
+        });
+        return next;
+      });
+    }
+  });
 
   const visible = candList.filter((c) => {
     if (c.active !== 1 && c.active !== true) return false;
@@ -163,6 +213,7 @@ export default function ScoringTab({ user, competition }) {
   };
 
   const scheduleSave = (key, value) => {
+    touched.current.add(key);
     if (timers.current[key]) clearTimeout(timers.current[key].t);
     timers.current[key] = { t: setTimeout(() => saveKey(key, value), 450), value };
   };
@@ -174,6 +225,8 @@ export default function ScoringTab({ user, competition }) {
     }
     const [candidate_id, criteria_id] = key.split(':');
     const clean = value == null || value === '' ? null : Number(value);
+    inflight.current.add(key);
+    touched.current.add(key);
     setStatus((s) => ({ ...s, [key]: 'saving' }));
     try {
       await scoresApi.save({
@@ -183,7 +236,9 @@ export default function ScoringTab({ user, competition }) {
         score: clean,
       });
       setStatus((s) => ({ ...s, [key]: 'saved' }));
+      inflight.current.delete(key);
     } catch (e) {
+      inflight.current.delete(key);
       setStatus((s) => ({ ...s, [key]: 'error' }));
       setError(e.message);
     }

@@ -1,8 +1,5 @@
-import mysql from 'mysql2/promise';
 import bcrypt from 'bcryptjs';
-import dotenv from 'dotenv';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import db from '../db.js';
 
 // Idempotent demo-data seeder.
 // Ensures, for every competition:
@@ -10,20 +7,8 @@ import { dirname, join } from 'node:path';
 //   - Mr & Ms: 3 pairs (3 Male + 3 Female) — existing candidates are kept
 //   - each standalone event: 4 participants, 1 per team
 //   - 4 judges per event (existing judges are kept)
-// Run:  node db/seed.mjs   (from the server/ folder)
+// Run:  node server/db/seed.mjs   (from the repo root, after node server/db/init.js)
 
-dotenv.config({ path: join(dirname(fileURLToPath(import.meta.url)), '..', '.env') });
-
-const conn = await mysql.createConnection({
-  host: process.env.DB_HOST || '127.0.0.1',
-  port: Number(process.env.DB_PORT || 3306),
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  multipleStatements: true,
-});
-const DB = process.env.DB_NAME || 'intramsgrado_db';
-await conn.query(`CREATE DATABASE IF NOT EXISTS \`${DB}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
-await conn.changeUser({ database: DB });
 
 const TEAMS = [
   { name: 'Valian Panthers', color: '#2753a0', sort: 1 },
@@ -84,45 +69,45 @@ const log = console.log;
 let added = { teams: 0, candidates: 0, judges: 0 };
 
 async function getCompByCode(code) {
-  const [[row]] = await conn.query('SELECT id FROM competitions WHERE code = ? LIMIT 1', [code]);
+  const [[row]] = await db.query('SELECT id FROM competitions WHERE code = ? LIMIT 1', [code]);
   return row ? row.id : null;
 }
 
 async function ensureTeam(compId, t) {
-  const [[row]] = await conn.query(
+  const [[row]] = await db.query(
     'SELECT id FROM teams WHERE competition_id = ? AND name = ? LIMIT 1', [compId, t.name]
   );
   if (row) return row.id;
-  const [res] = await conn.query(
-    'INSERT INTO teams (competition_id, name, color, sort_order) VALUES (?, ?, ?, ?)',
+  const [[res]] = await db.query(
+    'INSERT INTO teams (competition_id, name, color, sort_order) VALUES (?, ?, ?, ?) RETURNING id',
     [compId, t.name, t.color, t.sort]
   );
   added.teams += 1;
   log(`  + team "${t.name}" for comp ${compId}`);
-  return res.insertId;
+  return res.id;
 }
 
 async function addCandidate(compId, { no, first, last, gender, group, teamId }, mrMs) {
   if (!teamId) return;
   let exists;
   if (mrMs) {
-    [[exists]] = await conn.query(
+    [[exists]] = await db.query(
       'SELECT id FROM candidates WHERE competition_id = ? AND candidate_no = ? AND gender = ? LIMIT 1',
       [compId, no, gender]
     );
   } else {
-    [[exists]] = await conn.query(
+    [[exists]] = await db.query(
       'SELECT id FROM candidates WHERE competition_id = ? AND candidate_no = ? LIMIT 1', [compId, no]
     );
   }
   if (exists) return;
   if (group) {
-    await conn.query(
+    await db.query(
       'INSERT INTO candidates (competition_id, candidate_no, group_name, gender, team_id, active) VALUES (?, ?, ?, NULL, ?, 1)',
       [compId, no, group, teamId]
     );
   } else {
-    await conn.query(
+    await db.query(
       'INSERT INTO candidates (competition_id, candidate_no, first_name, last_name, gender, team_id, active) VALUES (?, ?, ?, ?, ?, ?, 1)',
       [compId, no, first || null, last || null, gender || null, teamId]
     );
@@ -134,10 +119,10 @@ async function addCandidate(compId, { no, first, last, gender, group, teamId }, 
 async function ensureJudges(compId, code) {
   const list = EXTRA_JUDGES[code] || [];
   for (const j of list) {
-    const [[row]] = await conn.query('SELECT id FROM judges WHERE username = ? LIMIT 1', [j.username]);
+    const [[row]] = await db.query('SELECT id FROM judges WHERE username = ? LIMIT 1', [j.username]);
     if (row) continue;
     const hash = bcrypt.hashSync(j.username, 10);
-    await conn.query(
+    await db.query(
       'INSERT INTO judges (name, username, password, is_admin, competition_id) VALUES (?, ?, ?, 0, ?)',
       [j.name, j.username, hash, compId]
     );
@@ -190,15 +175,15 @@ for (const [code, cid] of Object.entries(compIds)) {
 }
 log(`judges added: ${added.judges}`);
 
-const [[cmpCount]] = await conn.query('SELECT COUNT(*) AS c FROM candidates');
-const [[teamsCount]] = await conn.query('SELECT COUNT(*) AS c FROM teams');
-const [[jCount]] = await conn.query('SELECT COUNT(*) AS c FROM judges');
+const [[cmpCount]] = await db.query('SELECT COUNT(*) AS c FROM candidates');
+const [[teamsCount]] = await db.query('SELECT COUNT(*) AS c FROM teams');
+const [[jCount]] = await db.query('SELECT COUNT(*) AS c FROM judges');
 log('\nDone.');
 log(`  total judges = ${jCount.c}  (expect 1 admin + 7 events x 4 = 29)`);
 log(`  total teams  = ${teamsCount.c}  (expect 7 events x 4 = 28)`);
 log(`  total candidates = ${cmpCount.c}`);
 
-await conn.end();
+await db.end();
 
 
 

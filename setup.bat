@@ -3,11 +3,12 @@ title San Isidro College - Intramurals Setup
 echo ============================================================
 echo   Setup: installs dependencies, builds frontend, inits database
 echo ============================================================
-echo   Make sure MySQL is running in XAMPP first.
+echo   Needs a Postgres reachable via DATABASE_URL in .env
+echo   (copy .env.example to .env first).
 echo.
 
 echo [1/4] Installing server dependencies...
-cd /d "%~dp0server"
+cd /d "%~dp0"
 call npm install || goto :error
 
 echo.
@@ -21,8 +22,8 @@ call npm run build || goto :error
 
 echo.
 echo [4/4] Initializing database...
-cd /d "%~dp0server"
-node db\init.js || goto :error
+cd /d "%~dp0"
+call npm run db:init || goto :error
 
 echo.
 echo ============================================================
