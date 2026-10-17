@@ -96,8 +96,12 @@ const SEGMENTS = [
 // Segments belonging to Mr. & Ms.; every other segment belongs to the competition with the same code.
 const MR_MS_SEGMENT_CODES = new Set(['jeans', 'sports', 'cultural', 'formal', 'talent', 'qa']);
 
-// Standalone-competition judges (password = username).
+// Per-competition judges (password = username).
 const STANDALONE_JUDGES = [
+  { compCode: 'mr-ms', judges: [
+      { name: 'Judge1', username: 'judge1', password: 'judge1' },
+      { name: 'Judge2', username: 'judge2', password: 'judge2' },
+    ] },
   { compCode: 'hiphop', judges: [
       { name: 'Judge3', username: 'judge3', password: 'judge3' },
       { name: 'Judge4', username: 'judge4', password: 'judge4' },
