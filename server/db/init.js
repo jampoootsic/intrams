@@ -156,14 +156,23 @@ async function main() {
     console.warn('Migration check for settings table skipped:', e.message);
   }
 
-  // Seed segments + criterias.
+  // Seed segments + criterias. Segments reference competitions, so the Mr. & Ms.
+  // competition must exist first (the competitions block below is idempotent).
   const [[segCount]] = await conn.query('SELECT COUNT(*) AS c FROM segments');
   if (Number(segCount.c) === 0) {
+    let [[mrSeed]] = await conn.query("SELECT id FROM competitions WHERE code = 'mr-ms' LIMIT 1");
+    if (!mrSeed) {
+      const [res] = await conn.query(
+        "INSERT INTO competitions (code, name, standalone, unit_type, sort_order) VALUES ('mr-ms', 'Mr. & Ms. Isidran Intramurals', 0, 'individual', 1)"
+      );
+      mrSeed = { id: res.insertId };
+      console.log('Created Mr. & Ms. competition.');
+    }
     let order = 1;
     for (const seg of SEGMENTS) {
       const [res] = await conn.query(
-        'INSERT INTO segments (code, name, final_weight, sort_order) VALUES (?, ?, ?, ?)',
-        [seg.code, seg.name, seg.final_weight, order]
+        'INSERT INTO segments (code, competition_id, name, final_weight, sort_order) VALUES (?, ?, ?, ?, ?)',
+        [seg.code, mrSeed.id, seg.name, seg.final_weight, order]
       );
       const segmentId = res.insertId;
       let cOrder = 1;

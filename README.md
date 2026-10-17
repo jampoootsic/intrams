@@ -86,6 +86,22 @@ Each judge scores every candidate **0–100** per criterion.
 
 ## Setup (one time)
 
+### Option A: devenv (Linux/macOS, no XAMPP)
+Requires [devenv](https://devenv.sh). MariaDB, Node and all scripts are provided by `devenv.nix`;
+no `.env` is needed (DB credentials are set by devenv, data lives in `.devenv/state/mysql`).
+```bash
+devenv up          # MariaDB → npm install → DB init → API :3010 (--watch) → Vite :5174
+```
+Production-style run inside the shell:
+```bash
+devenv up -d mysql
+devenv shell
+setup              # npm install, build client, init DB
+start-server       # serves the built app at http://localhost:3010
+```
+
+### Option B: manual (Windows / XAMPP)
+
 ### 1. Start MySQL (XAMPP)
 Open **XAMPP Control Panel → Start MySQL**.
 
