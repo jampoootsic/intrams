@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import ChangePasswordModal from './ChangePasswordModal.jsx';
+
 const TABS = [
   { key: 'scoring', label: 'Scoring' },
   { key: 'results', label: 'Results & Winners', admin: true },
@@ -9,6 +12,7 @@ const TABS = [
 
 export default function Layout({ user, tab, onTab, onLogout, competitions, competition, onCompetition, children }) {
   const visibleTabs = TABS.filter((t) => !t.admin || user.is_admin);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   return (
     <div className="app">
@@ -29,6 +33,7 @@ export default function Layout({ user, tab, onTab, onLogout, competitions, compe
               <small>{user.is_admin ? 'Administrator' : 'Judge'}</small>
             </div>
           </div>
+          <button className="btn ghost" onClick={() => setChangingPassword(true)}>Change Password</button>
           <button className="btn ghost" onClick={onLogout}>Logout</button>
         </div>
       </header>
@@ -65,6 +70,8 @@ export default function Layout({ user, tab, onTab, onLogout, competitions, compe
       </nav>
 
       <main className="content">{children}</main>
+
+      {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
     </div>
   );
 }

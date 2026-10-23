@@ -61,6 +61,24 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
+// Change own password (any logged-in user). Requires the current password.
+router.put('/me/password', auth, async (req, res) => {
+  const { current_password, password } = req.body || {};
+  if (!current_password || !password) {
+    return res.status(400).json({ message: 'Current and new password are required.' });
+  }
+  if (String(password).length < 6) {
+    return res.status(400).json({ message: 'New password must be at least 6 characters.' });
+  }
+  const [[row]] = await pool.query('SELECT password FROM judges WHERE id = ?', [req.judge.id]);
+  if (!row || !bcrypt.compareSync(String(current_password), row.password)) {
+    return res.status(403).json({ message: 'Current password is incorrect.' });
+  }
+  const hash = bcrypt.hashSync(String(password), 10);
+  await pool.query('UPDATE judges SET password = ? WHERE id = ?', [hash, req.judge.id]);
+  return res.json({ message: 'Password changed.' });
+});
+
 // ---- Judge management (admin) ----
 // ?competition=<id> lists only the judges who belong to that competition.
 router.get('/', auth, adminOnly, async (req, res) => {
