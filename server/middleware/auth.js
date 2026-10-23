@@ -1,5 +1,9 @@
 import jwt from 'jsonwebtoken';
 
+if (!process.env.JWT_SECRET && process.env.VERCEL) {
+  throw new Error('JWT_SECRET must be set when running on Vercel.');
+}
+
 const SECRET = process.env.JWT_SECRET || 'sic-events-scoring-dev-secret';
 
 export function signToken(payload) {

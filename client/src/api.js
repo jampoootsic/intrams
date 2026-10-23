@@ -55,6 +55,8 @@ export const auth = {
     api(`/auth/${id}`, { method: 'PUT', body: JSON.stringify({ competition_id: competitionId }) }),
   resetPassword: (id, password) =>
     api(`/auth/${id}/password`, { method: 'PUT', body: JSON.stringify({ password }) }),
+  changeOwnPassword: (current_password, password) =>
+    api('/auth/me/password', { method: 'PUT', body: JSON.stringify({ current_password, password }) }),
   remove: (id) => api(`/auth/${id}`, { method: 'DELETE' }),
 };
 

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { candidates as candidatesApi, teams as teamsApi, segmentsApi } from '../api.js';
+import { prepareImageForUpload } from '../utils/image.js';
+import { useLiveRefresh } from '../hooks/useLiveRefresh.js';
 
 const EMPTY = { candidate_no: '', first_name: '', last_name: '', gender: 'Male', group_name: '', active: true, team_id: '' };
 
@@ -39,6 +41,7 @@ export default function CandidatesTab({ competition }) {
   useEffect(() => {
     load();
   }, [competition]);
+  useLiveRefresh(() => load());
 
   const nextNumber = () => {
     const nums = list.map((c) => parseInt(c.candidate_no, 10)).filter((n) => !isNaN(n));
@@ -127,7 +130,7 @@ export default function CandidatesTab({ competition }) {
     setPhotoBusy(true);
     try {
       const fd = new FormData();
-      fd.append('photo', photoFile);
+      fd.append('photo', await prepareImageForUpload(photoFile));
       await candidatesApi.uploadPhoto(id, fd);
       setError('');
     } catch (err) {
@@ -180,7 +183,7 @@ export default function CandidatesTab({ competition }) {
       setPhotoBusy(true);
       try {
         const fd = new FormData();
-        fd.append('photo', entry.file);
+        fd.append('photo', await prepareImageForUpload(entry.file));
         await candidatesApi.uploadPhoto(id, fd, Number(segId));
         setError('');
       } catch (err) {

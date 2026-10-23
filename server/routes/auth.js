@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import pool from '../db.js';
+import pool, { UNIQUE_VIOLATION } from '../db.js';
+import { bumpVersion } from '../utils/version.js';
 import { signToken, auth, adminOnly } from '../middleware/auth.js';
 
 const router = Router();
@@ -60,6 +61,24 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
+// Change own password (any logged-in user). Requires the current password.
+router.put('/me/password', auth, async (req, res) => {
+  const { current_password, password } = req.body || {};
+  if (!current_password || !password) {
+    return res.status(400).json({ message: 'Current and new password are required.' });
+  }
+  if (String(password).length < 6) {
+    return res.status(400).json({ message: 'New password must be at least 6 characters.' });
+  }
+  const [[row]] = await pool.query('SELECT password FROM judges WHERE id = ?', [req.judge.id]);
+  if (!row || !bcrypt.compareSync(String(current_password), row.password)) {
+    return res.status(403).json({ message: 'Current password is incorrect.' });
+  }
+  const hash = bcrypt.hashSync(String(password), 10);
+  await pool.query('UPDATE judges SET password = ? WHERE id = ?', [hash, req.judge.id]);
+  return res.json({ message: 'Password changed.' });
+});
+
 // ---- Judge management (admin) ----
 // ?competition=<id> lists only the judges who belong to that competition.
 router.get('/', auth, adminOnly, async (req, res) => {
@@ -87,9 +106,10 @@ router.post('/', auth, adminOnly, async (req, res) => {
       'INSERT INTO judges (name, username, password, is_admin, competition_id) VALUES (?, ?, ?, 0, ?)',
       [name, username, hash, cid]
     );
+    await bumpVersion();
     return res.json({ message: 'Judge created.' });
   } catch (e) {
-    if (e.code === 'ER_DUP_ENTRY') return res.status(409).json({ message: 'Username already taken.' });
+    if (e.code === UNIQUE_VIOLATION) return res.status(409).json({ message: 'Username already taken.' });
     return res.status(500).json({ message: e.message });
   }
 });
@@ -104,6 +124,7 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
     return res.status(400).json({ message: 'Administrators are system-wide and cannot be assigned to a competition.' });
   }
   await pool.query('UPDATE judges SET competition_id = ? WHERE id = ?', [competition_id == null ? null : Number(competition_id), id]);
+  await bumpVersion();
   return res.json({ message: 'Judge updated.' });
 });
 
@@ -112,6 +133,7 @@ router.put('/:id/password', auth, adminOnly, async (req, res) => {
   if (!password) return res.status(400).json({ message: 'New password is required.' });
   const hash = bcrypt.hashSync(String(password), 10);
   await pool.query('UPDATE judges SET password = ? WHERE id = ?', [hash, req.params.id]);
+  await bumpVersion();
   return res.json({ message: 'Password updated.' });
 });
 
@@ -120,6 +142,7 @@ router.delete('/:id', auth, adminOnly, async (req, res) => {
   const [[row]] = await pool.query('SELECT id FROM judges WHERE id = ?', [id]);
   if (!row) return res.status(404).json({ message: 'Judge not found.' });
   await pool.query('DELETE FROM judges WHERE id = ?', [id]);
+  await bumpVersion();
   return res.json({ message: 'Judge deleted.' });
 });
 

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import pool from '../db.js';
+import { bumpVersion } from '../utils/version.js';
 import { auth, adminOnly } from '../middleware/auth.js';
 import { getScoringLocked } from './settings.js';
 
@@ -115,6 +116,7 @@ router.put('/', auth, async (req, res) => {
       await pool.query('DELETE FROM scores WHERE candidate_id=? AND judge_id=? AND criteria_id=?', [
         candidate_id, judgeId, criteria_id,
       ]);
+      await bumpVersion();
       return res.json({ message: 'Score removed.' });
     }
 
@@ -125,9 +127,10 @@ router.put('/', auth, async (req, res) => {
 
     await pool.query(
       `INSERT INTO scores (candidate_id, judge_id, criteria_id, score) VALUES (?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE score = VALUES(score)`,
+       ON CONFLICT (candidate_id, judge_id, criteria_id) DO UPDATE SET score = EXCLUDED.score`,
       [candidate_id, judgeId, criteria_id, num]
     );
+    await bumpVersion();
     return res.json({ ok: true });
   } catch (e) {
     const status = e.status || 500;
@@ -173,11 +176,12 @@ router.post('/bulk', auth, adminOnly, async (req, res) => {
         if (isNaN(num) || num < 0 || num > 100) throw new Error('Score must be 0-100.');
         await conn.query(
           `INSERT INTO scores (candidate_id, judge_id, criteria_id, score) VALUES (?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE score = VALUES(score)`,
+           ON CONFLICT (candidate_id, judge_id, criteria_id) DO UPDATE SET score = EXCLUDED.score`,
           [e.candidate_id, judge_id, e.criteria_id, num]
         );
       }
     }
+    await bumpVersion(conn);
     await conn.commit();
     return res.json({ ok: true });
   } catch (err) {
@@ -203,6 +207,7 @@ router.delete('/reset', auth, adminOnly, async (req, res) => {
   }
 
   const [result] = await pool.query('DELETE FROM scores');
+  await bumpVersion();
   return res.json({
     message: `All scores have been reset (${result.affectedRows} score record(s) removed).`,
     deleted: result.affectedRows,

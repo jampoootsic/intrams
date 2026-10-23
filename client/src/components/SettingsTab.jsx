@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { segmentsApi, scoresApi, settingsApi } from '../api.js';
+import { useLiveRefresh } from '../hooks/useLiveRefresh.js';
 
 export default function SettingsTab({ competition }) {
   const [segments, setSegments] = useState([]);
@@ -13,18 +14,36 @@ export default function SettingsTab({ competition }) {
   const [lockBusy, setLockBusy] = useState(false);
   const [confirmLock, setConfirmLock] = useState(false);
 
+  const segDirty = useRef(new Set()); // segments with unsaved local weight edits
+
   const load = () => {
     segmentsApi.list(competition ? competition.id : null).then(setSegments).catch((e) => setError(e.message));
     settingsApi.system().then((s) => setLocked(!!s.locked)).catch(() => {});
   };
   useEffect(() => {
+    segDirty.current.clear();
     load();
   }, [competition]);
 
+  // Background refresh: keep segments with unsaved weight edits as typed.
+  useLiveRefresh(() => {
+    segmentsApi
+      .list(competition ? competition.id : null)
+      .then((fresh) =>
+        setSegments((prev) =>
+          fresh.map((s) => (segDirty.current.has(s.id) ? prev.find((p) => p.id === s.id) || s : s))
+        )
+      )
+      .catch(() => {});
+    settingsApi.system().then((s) => setLocked(!!s.locked)).catch(() => {});
+  });
+
   const setSegWeight = (segId, val) => {
+    segDirty.current.add(segId);
     setSegments((prev) => prev.map((s) => (s.id === segId ? { ...s, final_weight: val } : s)));
   };
   const setCrit = (segId, critId, field, val) => {
+    segDirty.current.add(segId);
     setSegments((prev) =>
       prev.map((s) =>
         s.id === segId
@@ -42,6 +61,7 @@ export default function SettingsTab({ competition }) {
       for (const c of seg.criterias) {
         await segmentsApi.updateCriteria(c.id, { weight: c.weight });
       }
+      segDirty.current.delete(seg.id);
       setMsg(`Saved “${seg.name}”.`);
     } catch (e) {
       setError(e.message);

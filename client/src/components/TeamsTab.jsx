@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { teams as teamsApi, candidates as candidatesApi } from '../api.js';
+import { useLiveRefresh } from '../hooks/useLiveRefresh.js';
 
 const DEFAULT_COLORS = ['#14213d', '#2753a0', '#8a2f6b', '#a02c2c', '#2e7d46', '#b37400', '#5a2ca0', '#0f7f8c'];
 
@@ -14,6 +15,7 @@ export default function TeamsTab({ competition }) {
   useEffect(() => {
     load();
   }, [competition]);
+  useLiveRefresh(() => load());
 
   const openAdd = () => {
     setForm({ name: '', color: DEFAULT_COLORS[list.length % DEFAULT_COLORS.length] });

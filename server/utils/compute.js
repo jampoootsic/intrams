@@ -3,6 +3,7 @@
 //   segmentScore = sum( criteria_score avg over judges * criteria.weight / 100 )
 //   finalScore   = sum( segmentScore * segment.final_weight / 100 )
 import pool from '../db.js';
+import { photoUrl } from './storage.js';
 
 const TITLES = ['Mr./Ms. Isidran Intramurals', 'First Runner Up', 'Second Runner Up', 'Third Runner Up'];
 const GENERIC_TITLES = ['Champion', 'First Runner Up', 'Second Runner Up', 'Third Runner Up'];
@@ -23,7 +24,7 @@ export async function computeResults(competitionId) {
     [competitionId]
   );
   candidates.forEach((c) => {
-    c.photo_url = c.photo ? `/uploads/${encodeURIComponent(c.photo)}` : null;
+    c.photo_url = photoUrl(c.photo);
   });
   // Per-exposure photos keyed by segment id: segment_photos = { [segmentId]: { photo, photo_url } }
   const [photoRows] = await pool.query(
@@ -37,7 +38,7 @@ export async function computeResults(competitionId) {
   photoRows.forEach((r) => {
     (segPhotoByCand[r.candidate_id] ||= {})[String(r.segment_id)] = {
       photo: r.photo,
-      photo_url: `/uploads/${encodeURIComponent(r.photo)}`,
+      photo_url: photoUrl(r.photo),
     };
   });
   candidates.forEach((c) => { c.segment_photos = segPhotoByCand[c.id] || {}; });

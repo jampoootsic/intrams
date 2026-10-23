@@ -3,9 +3,10 @@
 ## Existing Architecture
 - Frontend: React 18 and Vite.
 - Backend: Node.js ES modules and Express 4.
-- Database: MySQL/MariaDB using mysql2.
+- Database: Postgres via `pg` (Neon in production); `server/db.js` wraps queries in a mysql2-shaped `[rows, meta]` result and converts `?` placeholders.
 - Authentication includes JWT and bcryptjs.
-- File uploads use Multer.
+- File uploads use Multer (memory) + `server/utils/storage.js` (Vercel Blob in production, disk locally).
+- Deployed on Vercel (`api/index.js` serverless function, `vercel.json`); realtime via `settings.data_version` polling.
 - Preserve the existing architecture and conventions unless the task requires a justified change.
 
 ## Token Efficiency

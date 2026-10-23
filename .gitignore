@@ -40,3 +40,12 @@ server/uploads/*
 Thumbs.db
 .vscode/*
 !.vscode/extensions.json
+
+# devenv
+.devenv/
+.devenv.flake.nix
+devenv.local.nix
+.direnv/
+.pre-commit-config.yaml
+.vercel
+.env*
