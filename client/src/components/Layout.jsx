@@ -18,7 +18,7 @@ export default function Layout({ user, tab, onTab, onLogout, competitions, compe
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <span className="brand-badge small">SIC</span>
+          <img className="seal-logo" src="/sic-seal.png" alt="San Isidro College seal" />
           <div>
             <strong>Events Scoring System</strong>
             <small>San Isidro College</small>

@@ -393,7 +393,7 @@ export default function ScoringTab({ user, competition }) {
   return (
     <div className="scoring">
       <header className="judge-header">
-        <span className="judge-header-badge">SI</span>
+        <img className="seal-logo" src="/sic-seal.png" alt="San Isidro College seal" />
         <div className="judge-header-titles">
           <h1>Events Scoring System</h1>
           <span>{competition ? competition.name : 'Judging Score Sheet'}</span>

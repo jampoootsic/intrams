@@ -268,7 +268,7 @@ export default function ResultsTab({ competition }) {
       {/* Print-only letterhead — hidden on screen, shown in print/PDF */}
       <div className="print-header">
         <div className="print-brand">
-          <div className="brand-badge small">SI</div>
+          <img className="seal-logo" src="/sic-seal.png" alt="San Isidro College seal" />
           <div>
             <strong>San Isidro College</strong>
             <span>{comp ? comp.name : 'Events'} — Official Results</span>
@@ -319,7 +319,7 @@ export default function ResultsTab({ competition }) {
         <div className="print-summary">
           <div className="print-header">
             <div className="print-brand">
-              <div className="brand-badge small">SI</div>
+              <img className="seal-logo" src="/sic-seal.png" alt="San Isidro College seal" />
               <div>
                 <strong>San Isidro College</strong>
                 <span>{comp ? comp.name : 'Events'} — Official Summary</span>

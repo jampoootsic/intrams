@@ -78,9 +78,14 @@ export default function Login() {
         <aside className="login-panel">
           <div className="login-ring" aria-hidden="true" />
           <span className="login-panel-eyebrow">San Isidro College</span>
-          <span className="login-badge">
-            <img className="login-badge-logo" src="/tabulator.png" alt="San Isidro College logo" />
-          </span>
+          <div className="login-logos">
+            <span className="login-badge">
+              <img className="login-badge-logo" src="/sic-seal.png" alt="San Isidro College seal" />
+            </span>
+            <span className="login-badge">
+              <img className="login-badge-logo" src="/tabulator.png" alt="Mr. & Ms. Tabulation System logo" />
+            </span>
+          </div>
           <h1 className="login-panel-title">
             Events Scoring
             <br />
